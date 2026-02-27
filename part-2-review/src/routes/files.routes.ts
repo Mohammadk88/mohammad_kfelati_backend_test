@@ -11,7 +11,17 @@ const router = Router();
  */
 router.get("/:filename", authMiddleware, (req: Request, res: Response) => {
   try {
-    const filePath = path.join(__dirname, "..", "uploads", req.params.filename);
+    const uploadsDir = path.resolve(__dirname, "..", "uploads");
+    const filename = path.basename(req.params.filename); // Strip directory traversal
+    const filePath = path.resolve(uploadsDir, filename);
+
+    // Verify the resolved path is still within the uploads directory
+    if (!filePath.startsWith(uploadsDir)) {
+      return res.status(403).json({
+        success: false,
+        error: "Access denied",
+      });
+    }
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({
@@ -22,10 +32,10 @@ router.get("/:filename", authMiddleware, (req: Request, res: Response) => {
 
     return res.sendFile(filePath);
   } catch (error: any) {
+    console.error("File download error:", error);
     return res.status(500).json({
+      success: false,
       error: "Internal server error",
-      details: error.message,
-      stack: error.stack,
     });
   }
 });

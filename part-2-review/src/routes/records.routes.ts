@@ -1,15 +1,23 @@
 import { Router, Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { z } from "zod";
+import prisma from "../utils/prisma";
 import { authMiddleware } from "../middleware/auth.middleware";
+import { authorize } from "../middleware/authorize.middleware";
 
 const router = Router();
-const prisma = new PrismaClient();
+
+// Input validation schemas
+const createRecordSchema = z.object({
+  patientName: z.string().min(1, "Patient name is required").max(200),
+  diagnosis: z.string().min(1, "Diagnosis is required").max(1000),
+  notes: z.string().max(5000).optional(),
+});
 
 /**
  * GET /records
  * List all medical records
  */
-router.get("/", authMiddleware, async (req: Request, res: Response) => {
+router.get("/", authMiddleware, authorize("ADMIN", "DOCTOR", "STAFF"), async (req: Request, res: Response) => {
   try {
     const records = await prisma.record.findMany({
       include: {
@@ -25,10 +33,10 @@ router.get("/", authMiddleware, async (req: Request, res: Response) => {
       data: records,
     });
   } catch (error: any) {
+    console.error("List records error:", error);
     return res.status(500).json({
+      success: false,
       error: "Internal server error",
-      details: error.message,
-      stack: error.stack,
     });
   }
 });
@@ -42,27 +50,32 @@ router.get("/search", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { name } = req.query;
 
-    if (!name) {
+    if (!name || typeof name !== "string") {
       return res.status(400).json({
         success: false,
         error: "Search parameter 'name' is required",
       });
     }
 
-    // Using raw query for case-insensitive search
-    const results = await prisma.$queryRawUnsafe(
-      `SELECT * FROM "Record" WHERE "patientName" ILIKE '%${name}%'`
-    );
+    // Use Prisma's safe query API instead of raw SQL to prevent SQL injection
+    const results = await prisma.record.findMany({
+      where: {
+        patientName: {
+          contains: name,
+          mode: "insensitive",
+        },
+      },
+    });
 
     return res.status(200).json({
       success: true,
       data: results,
     });
   } catch (error: any) {
+    console.error("Search records error:", error);
     return res.status(500).json({
+      success: false,
       error: "Internal server error",
-      details: error.message,
-      stack: error.stack,
     });
   }
 });
@@ -94,10 +107,10 @@ router.get("/:id", authMiddleware, async (req: Request, res: Response) => {
       data: record,
     });
   } catch (error: any) {
+    console.error("Get record error:", error);
     return res.status(500).json({
+      success: false,
       error: "Internal server error",
-      details: error.message,
-      stack: error.stack,
     });
   }
 });
@@ -106,9 +119,19 @@ router.get("/:id", authMiddleware, async (req: Request, res: Response) => {
  * POST /records
  * Create a new medical record
  */
-router.post("/", authMiddleware, async (req: Request, res: Response) => {
+router.post("/", authMiddleware, authorize("ADMIN", "DOCTOR"), async (req: Request, res: Response) => {
   try {
-    const { patientName, diagnosis, notes } = req.body;
+    // Validate input
+    const parsed = createRecordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        success: false,
+        error: "Validation failed",
+        details: parsed.error.issues.map((i) => i.message),
+      });
+    }
+
+    const { patientName, diagnosis, notes } = parsed.data;
 
     const record = await prisma.record.create({
       data: {
@@ -124,10 +147,10 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       data: record,
     });
   } catch (error: any) {
+    console.error("Create record error:", error);
     return res.status(500).json({
+      success: false,
       error: "Internal server error",
-      details: error.message,
-      stack: error.stack,
     });
   }
 });
