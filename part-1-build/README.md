@@ -130,8 +130,8 @@ part-1-build/
 
 ## Design Decisions
 
-- **Express 5**: Used for native async error handling and modern routing. Note: `req.query` is read-only in Express 5, so validated query params are passed via `res.locals`.
-- **Prisma 7 + pg adapter**: Prisma 7 requires the `@prisma/adapter-pg` driver adapter instead of the traditional datasource URL in the schema. The connection URL is configured in `prisma.config.ts`.
+- **Claude Opus 4.6**: Used AI to support me as Autocomplete and create some files.
+- **Prisma 7 + pg adapter**: Prisma 7 requires the `@prisma/adapter-pg` library instead of the traditional datasource URL in the schema. The connection URL is configured in `prisma.config.ts`.
 - **Appointment overlap detection**: Uses `endTime` field (computed from `dateTime + duration`) with range intersection queries for accurate conflict detection.
-- **Role-based access**: Enforced at the service layer — patients see only their appointments, doctors see only theirs, admins see all.
-- **Passwords**: Hashed with bcrypt (cost factor 12), never returned in any response.
+- **Role-based access**: Enforced at the service layer, patients see only their appointments, doctors see only theirs, admins see all.
+- **Passwords**: Hashed with bcrypt.
